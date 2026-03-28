@@ -1,13 +1,13 @@
 # 📞 Contact Center Volume & Performance Forecasting
 Develop a model to forecast intraday contact center metrics at the portfolio level. 
-## 🎯 Objective Parameters
+## 🎯 Objective
 The model predicts the following targets in strict 30-minute intervals for August 2024:
 - Call Volume (CV)
 - Customer Care Time (CCT)
 - Abandon Rate (ABD)
 - The data contains 4 independent portfolios (A, B, C, D) of varied sizes.
 
-## 🧠 Core Intuitions & Business Logic
+## 🧠 Intuitions
 Before modeling, we had several key intuitions:
 - Approximately 90% of inbound call volume occurs between 9:00 AM and 9:00 PM EST, with "morning rushes" and "lunch dips."
 - Volume is high on weekdays. Weekends have a decline, and major holidays (like Christmas/Thanksgiving) have minimal calls. (Note: There is no holidays in August)
@@ -15,7 +15,7 @@ Before modeling, we had several key intuitions:
 - Daily staffing directly impacts the Abandon Rate (ABD) and Service Level. But staffing does not impact Call Volume (CV).
 - Outliers: Extreme values in Abandon Rate on 01/02/24.
 
-## 🧹 Data Processing & Cleaning Pipeline
+## 🧹 Data Cleaning
 ### Step 1: Standardization
 - All raw timestamps were strictly localized to US/Eastern to comply with project requirements and accurately capture daylight saving time shifts.
 - The raw event logs were resampled into rigid 30-minute intervals (.resample('30min').asfreq()).
