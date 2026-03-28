@@ -31,10 +31,7 @@ for p in portfolios:
         
 cleaned = pd.concat(dfs)
 
-for col in ['Call Volume', 'Abandoned Calls', 'Abandoned Rate']:
-    cleaned[col] = cleaned[col].fillna(0)
-for col in ['CCT', 'Service Level']:
-    cleaned[col] = cleaned.groupby('Portfolio')[col].transform(lambda x: x.interpolate(method='linear').bfill().ffill())
+cleaned = cleaned.dropna()
 
 def outliers(series):
     limit = series.quantile(0.99)
