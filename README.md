@@ -33,16 +33,13 @@ All baseline predictions (like `v123`) are generated using our foundational `v04
 * **Two-Stage Volume Prediction:** Instead of guessing raw numbers directly, it first predicts the *total daily call volume*, and then predicts the *interval share* (the % of calls arriving in each 30-minute window). 
 * **Cyclical Time Features:** It translates timestamps into sine and cosine waves, allowing the XGBoost trees to mathematically understand repeating daily and seasonal time patterns.
 
-### 2. Recent Historical Profiling (June Isolation)
+### 2. Recent Historical Profiling
 Caller behavior drifts over time. Rather than taking an average of the entire year, the final script dynamically isolates historical data strictly from **June 2025**. By calculating the median call distribution for this recent period, we align the predicted intraday arrival shape with the most current caller trends.
 
-### 3. Rolling Median Smoothing (Noise Reduction)
+### 3. Rolling Median Smoothing
 Raw historical data is inherently noisy. To prevent the model from overfitting to random historical spikes (e.g., a single 30-minute surge on a random Tuesday), the script applies a **Rolling Median Smooth** to the June profile. This mathematically "irons out" erratic intervals, ensuring a realistic staffing curve.
 
-### 4. 50/50 Shape Blending
-The script takes the base ML prediction's shape and blends it with the newly smoothed June historical shape at exactly a **50% / 50% weight**. This "wisdom of crowds" approach prevents extreme errors; the historical data keeps the ML grounded, while the ML accounts for new variables history can't foresee.
-
-### 5. Final Portfolio Scalars
+### 4. Final Portfolio Scalars
 Finally, the pipeline applies targeted multipliers to correct known, persistent baseline under-predictions. 
 * **Portfolio A:** Scaled by `1.04` (+4%)
 * **Portfolio C:** Scaled by `1.02` (+2%)
