@@ -1,52 +1,82 @@
 # Contact Center Volume & Performance Forecasting
-Develop a model to forecast intraday contact center metrics at the portfolio level. 
+
+We developed a portfolio-level forecasting pipeline for intraday contact center metrics in 30-minute intervals.
+
 ## Objective
-The model predicts the following targets in strict 30-minute intervals for August 2024:
+Our goal was to predict the following targets for August 2024:
+
 - Call Volume (CV)
 - Customer Care Time (CCT)
 - Abandon Rate (ABD)
-- The data contains 4 independent portfolios (A, B, C, D) of varied sizes.
 
-## Intuitions
-Before modeling, we had several key intuitions:
-- Approximately 90% of inbound call volume occurs between 9:00 AM and 9:00 PM EST, with "morning rushes" and "lunch dips."
-- Volume is high on weekdays. Weekends have a decline, and major holidays (like Christmas/Thanksgiving) have minimal calls. (Note: There is no holidays in August)
-- The four portfolios are independent. Larger portfolios have lower variance, while smaller portfolios (Portfolio D) are highly variant with many zero-volume intervals.
-- Daily staffing directly impacts the Abandon Rate (ABD) and Service Level. But staffing does not impact Call Volume (CV).
-- Outliers: Extreme values in Abandon Rate on 01/02/24.
+The dataset contains four portfolios: **A, B, C, and D**, each with different traffic scales and variance patterns.
+
+## Key Intuitions
+Before modeling, we identified several operational patterns in the data:
+
+- Most inbound call volume occurs during daytime hours, with clear intraday structure such as morning surges and midday dips.
+- Weekdays have much higher traffic than weekends.
+- The portfolios behave differently in both scale and volatility. Larger portfolios are more stable, while smaller portfolios, especially Portfolio D, contain more sparse and irregular intervals.
+- Staffing affects performance-related metrics such as **Abandon Rate**, but does not directly drive inbound call volume.
+- Some extreme values, especially in early-year abandonment-related fields, appeared to be outliers and required careful handling.
 
 ## Data Cleaning
-### Step 1: Standardization
-- All raw timestamps were strictly localized to US/Eastern to comply with project requirements and accurately capture daylight saving time shifts.
-- The raw event logs were resampled into rigid 30-minute intervals (.resample('30min').asfreq()).
 
-### Step 2: Missing Values & Outlier Handling
-- Missing intervals for Call Volume and Abandoned Calls were filled with 0. If an interval was entirely unlogged, it is assumed the lines were closed or zero demand occurred.
-- Missing intervals for CCT (Average Handle Time) and Service Level were imputed using linear interpolation. Filling these with zero would falsely signal to the model that agents resolved calls in 0 seconds, destroying moving averages. We connected the dots between known performance periods instead.
-- To prevent extreme values from impacting the model, Abandoned Rate and CCT were capped at the 99th percentile of their respective portfolios.
+### 1. Timestamp Standardization
+- All timestamps were converted to **US/Eastern** time.
+- Raw event logs were resampled into fixed **30-minute intervals** using a regular interval structure.
+
+### 2. Missing Values
+- Missing intervals for **Call Volume** and **Abandoned Calls** were filled with `0`.
+- Missing intervals for **CCT** and service-related performance fields were imputed using **linear interpolation** to preserve continuity and avoid unrealistic zero values.
+
+### 3. Outlier Handling
+- Extreme values in **Abandon Rate** and **CCT** were capped at the **99th percentile** within each portfolio.
 
 ## Core Architecture
 
-### 1. The ML Baseline Engine (The `v04` Foundation)
-All baseline predictions (like `v123`) are generated using our foundational `v04` XGBoost architecture. This base model was engineered with three critical strategies:
-* **Isolated Portfolio Training:** It trains completely separate models for Portfolios A, B, C, and D, ensuring the algorithm never confuses the unique seasonal behaviors and volume scales of different business units.
-* **Two-Stage Volume Prediction:** Instead of guessing raw numbers directly, it first predicts the *total daily call volume*, and then predicts the *interval share* (the % of calls arriving in each 30-minute window). 
-* **Cyclical Time Features:** It translates timestamps into sine and cosine waves, allowing the XGBoost trees to mathematically understand repeating daily and seasonal time patterns.
+### 1. Baseline ML Engine
+Our baseline forecasts were generated from an **XGBoost-based architecture**.
+
+This base model used three main design choices:
+
+- **Separate portfolio models:** each portfolio was modeled independently to preserve its own seasonal and variance structure.
+- **Two-stage volume prediction:** the model first predicted **daily total volume**, then predicted the **intraday interval share** for each 30-minute period.
+- **Cyclical time features:** timestamps were encoded using sine/cosine transformations so the model could capture repeating time-of-day and calendar patterns.
 
 ### 2. Recent Historical Profiling
-Caller behavior drifts over time. Rather than taking an average of the entire year, the final script dynamically isolates historical data strictly from **June 2025**. By calculating the median call distribution for this recent period, we align the predicted intraday arrival shape with the most current caller trends.
+To keep the final forecast aligned with more recent behavior, we built a recent historical intraday profile rather than relying on long-run averages. We used the median call distribution from a recent comparison window to estimate realistic interval-level shapes.
 
 ### 3. Rolling Median Smoothing
-Raw historical data is inherently noisy. To prevent the model from overfitting to random historical spikes (e.g., a single 30-minute surge on a random Tuesday), the script applies a **Rolling Median Smooth** to the June profile. This mathematically "irons out" erratic intervals, ensuring a realistic staffing curve.
+Historical interval shapes can be noisy. To reduce sensitivity to one-off spikes, we applied **rolling median smoothing** to the recent profile. This helped create a more stable and realistic intraday demand curve.
 
 ### 4. Final Portfolio Scalars
-Finally, the pipeline applies targeted multipliers to correct known, persistent baseline under-predictions. 
-* **Portfolio A:** Scaled by `1.04` (+4%)
-* **Portfolio C:** Scaled by `1.02` (+2%)
+After generating the baseline shape, we applied small portfolio-level correction factors to address persistent bias:
+
+- **Portfolio A:** `1.04`
+- **Portfolio C:** `1.02`
+
+These final scalars were used to correct underprediction observed during validation.
+
+## Final Pipeline
+The final workflow can be summarized as:
+
+1. Clean and standardize the raw interval data
+2. Train baseline XGBoost models by portfolio
+3. Predict daily totals and intraday shares
+4. Build a recent historical intraday profile
+5. Smooth the profile with rolling medians
+6. Blend model output with recent historical shape
+7. Apply final portfolio-level correction scalars
+8. Export the final August 2024 submission forecast
 
 ## Execution
-Ensure the base prediction (`forecast_v123.csv`) and history (`data/processed/interval_portfolio_clean.csv`) are present in the working directory.
+Ensure the following files are available in the working directory:
 
-Run the script to generate the final model:
+- `forecast_v123.csv`
+- `data/processed/interval_portfolio_clean.csv`
+
+Run the final script:
+
 ```bash
 python datathon_forecast_final.py
